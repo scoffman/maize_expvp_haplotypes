@@ -1,1 +1,1 @@
-# maize_expvp
+# maize_expvp_haplotypes
