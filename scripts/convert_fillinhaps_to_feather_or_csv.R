@@ -1,7 +1,7 @@
-#### CONVERT FILLINFINDHAPLOTYPES PLUGIN HAPLOTYPE RESULTS TO A SINGLE FILE ####
+#### CONVERT FILLINFINDHAPLOTYPES PLUGIN HAPLOTYPE OUTPUT TO A SINGLE FILE ####
 ###################    AUTHOR: STEPHANIE COFFMAN    ############################
 
-     ############## OUTPUT FOLDER STRUCTURE FROM THE PLUGIN ##############
+     ### OUTPUT FOLDER STRUCTURE FROM THE FILLINFindHaplotypes Plugin ####
      #   Each output folder from the plugin contains several text files  #
      #   -- one per SNP window tested. Each of these text files contains #
      #   the consensus SNP calls by haplotype group in that SNP window.  #
@@ -13,19 +13,22 @@
      #   belong to each haplotype group                                  #
 
 
-
 library(data.table)
-library(feather)
+# library(feather) # only needed if you want to export results to feather format
 library(dplyr)
 
 
 # 1) BRING IN THE CONSENSUS SNPS BY HAPLOTYPE BLOCK TO GET POSITION INFO AND GROUP COUNTS
 
-# make sure your working directory (where you are running this from) is set to the
-# folder that contains all of the output folders from the plugin results
-# get subfolder names - example subfolder name: mintaxa1_mxdiv03_mxhet05_c1
-# modify the strings to look for based on your subfolder names 
-thedirs = list.dirs()[which(!(grepl("extOut", list.dirs())) & grepl("mintaxa1_mxdiv03_mxhet05", list.dirs()))]
+# set working directory to the folder that contains the output folders from the plugin
+setwd("../data/") #\maize_expvp_haplotypes\data
+thedirs = list.dirs(path = "./", full.names = T)
+# we do not want the extOut folders yet, so next we will remove those paths
+# by only keeping the folders that have the pattern "mintaxa1_mxdiv03_mxhet05"
+# modify the string "mintaxa1_mxdiv03_mxhet05" if your folder naems are different
+thedirs = thedirs[which(!(grepl("extOut", thedirs)) & grepl("mintaxa1_mxdiv03_mxhet05", thedirs))]
+
+stopifnot(length(thedirs) > 0)
 
 # get list of files in each subfolder
 thefiles = lapply(thedirs, function(x){
@@ -35,17 +38,13 @@ thefiles = lapply(thedirs, function(x){
 hapblocks_files = unlist(thefiles)
 
 hapblocks = list()
-
-
 for (i in 1:length(hapblocks_files)){
-    
     hapblocks[[i]] <- fread(hapblocks_files[[i]], header=T, verbose = F) 
-    
-    chr = as.integer(gsub("/.*", "", gsub("\\./mintaxa1_mxdiv03_mxhet05_c", "", hapblocks_files[[i]]))) # get the chrom from the file name
-    hapblocks[[i]]$chr = chr # add the chrom as a column
-    
+    # get the chrom
+    chr = as.integer(hapblocks[[i]][1,"chrom"])
     block = as.integer(gsub("\\..*", "", gsub(paste(".*gc", chr, "s", sep = ""), "", hapblocks_files[[i]])))
-    hapblocks[[i]]$block = block # add the hapblock number as a column
+    # add the hapblock number as a column
+    hapblocks[[i]]$block = block 
     hapblocks[[i]] = as.matrix(hapblocks[[i]])
 }
 
@@ -55,15 +54,13 @@ print("hapblocks_files loaded")
 
 # make a data table to summarize the hapblock information
 # start pos, stop pos, nloci, nhapgroups, names of the hapgroups
-
 get_block_info = function(x){
-    chr = unique(x[,"chr"])
+    chr = unique(x[,"chrom"])
     block = unique(x[,"block"])
     startpos = gsub(" ", "", x[1,"pos"])
     endpos = gsub(" ", "", x[nrow(x),"pos"])
     nloci = nrow(x)
     nhaps = length(which(grepl(":", colnames(x))))
-    
     out = cbind(chr, block, startpos, endpos, nloci, nhaps)
     return(out)
 }
@@ -72,16 +69,18 @@ hapblock_info = lapply(hapblocks, get_block_info)
 hapblock_info = do.call(rbind, hapblock_info)
 hapblock_info = data.table(apply(hapblock_info, 2, as.integer))
 
-
-write_feather(hapblock_info, "hapblock_info_for_fillin_summary.feather")
-# fwrite(hapblock_info, "haplotype_info_for_fillin_summary.csv", row.names = F, sep = ",")
+# write out the consensus snps
+# modify file path below as needed
+# write_feather(hapblock_info, "hapblock_info.feather")
+fwrite(hapblock_info, "../output/hapblock_info.csv", row.names = F, sep = ",")
 
 
 
 # 2) BRING IN THE SAMPLE INFORMATION SO WE KNOW WHAT SAMPLES WERE ASSIGNED TO WHICH HAPLOTYPE GROUPS
 
-# make the extOut subfolder names; modify strings as needed
-thedirs = list.dirs()[which(grepl("extOut", list.dirs()) & grepl("mintaxa1_mxdiv03_mxhet05", list.dirs()))]
+# get the extOut subfolder names; modify strings as needed
+thedirs = list.dirs(path = "./", full.names = T)
+thedirs = thedirs[which(grepl("extOut", thedirs))]
 
 # get list of files in each extOut subfolder
 thefiles = lapply(thedirs, function(x){
@@ -91,13 +90,12 @@ thefiles = lapply(thedirs, function(x){
 groupassigns_files = unlist(thefiles)
 
 hap_results = list()
-
 for (i in 1:length(groupassigns_files)){
     hap_results[[i]] <- fread(groupassigns_files[[i]], sep = "\t", header=F, fill = T, verbose = F) 
-    
-    chr = as.integer(gsub("/.*", "", gsub("\\./mintaxa1_mxdiv03_mxhet05_c", "", groupassigns_files[[i]]))) # get the chrom from the file name
-    hap_results[[i]]$chr = chr # add the chrom as a column
-    
+    # get the chromosome from the file name
+    chr = as.integer(gsub("\\..*", "", gsub(".*/mintaxa1_mxdiv03_mxhet05_c", "", groupassigns_files[[i]]))) 
+    # add the chrom as a column
+    hap_results[[i]]$chr <- chr
     block = as.integer(gsub("\\..*", "", gsub(paste(".*gc", chr, "s", sep = ""), "", groupassigns_files[[i]])))
     hap_results[[i]]$block = block # add the hapblock number as a column
     hap_results[[i]] = as.matrix(hap_results[[i]])
@@ -115,7 +113,7 @@ hap_results = lapply(hap_results, function(x){
 
 hap_results = do.call(rbind, hap_results)
 colnames(hap_results)[which(colnames(hap_results) == "V1")] <- "hapname"
-hap_results$hmp_sample = gsub(" ", "", hap_results$hmp_sample) # these ar our sample names
+hap_results$hmp_sample = gsub(" ", "", hap_results$hmp_sample) # these are our sample names
 hap_results$chr = as.integer(hap_results$chr) # this is our chromosome
 hap_results$block = as.integer(hap_results$block) # this is the snp window
 
@@ -131,7 +129,9 @@ colnames(origin_inbreds_list)[which(colnames(origin_inbreds_list) == "hmp_sample
 hap_results = left_join(hap_results, origin_inbreds_list[,c("chr","block","hapname","origin_inbred")], by = c("chr","block","hapname"))
 
 
-write_feather(hap_results, "hap_results_for_fillin_summary.feather")
-# fwrite(hap_results, "hap_results_for_fillin_summary.csv", sep = ",", row.names = F)
+# write_feather(hap_results[,c("chr","block","startpos","endpos","hapname","origin_inbred","hmp_sample")], 
+#               "hap_results.feather")
+fwrite(hap_results[,c("chr","block","startpos","endpos","hapname","origin_inbred","hmp_sample")], 
+       "../output/hap_results.csv", sep = ",", row.names = F)
 
 
