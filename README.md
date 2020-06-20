@@ -1,7 +1,6 @@
 ### Helper scripts for haplotype analysis
 Owner: Stephanie Coffman
 
-<br>
 
 #### **Introduction**
 
@@ -9,7 +8,6 @@ This repository contains helper scripts and example files that were used in anal
 
 Coffman, S.M., Hufford, M.B., Andorf, C.M. et al. Haplotype structure in commercial maize breeding programs in relation to key founder lines. Theor Appl Genet 133, 547-561 (2020). [https://doi.org/10.1007/s00122-019-03486-y](https://doi.org/10.1007/s00122-019-03486-y)
 
-<br>
 
 #### **Methods**
 
@@ -17,7 +15,6 @@ Coffman, S.M., Hufford, M.B., Andorf, C.M. et al. Haplotype structure in commerc
 
 The FILLINFindHaplotypes Plugin generates two txt files per SNP window. This can lead to a large number of files. This script takes all of those files and combines it to two output files. 
 
-<br>
 
 #### **`/scripts/apply_hierarchy.R`**
 
